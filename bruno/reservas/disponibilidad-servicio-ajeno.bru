@@ -1,0 +1,35 @@
+meta {
+  name: Horarios con un servicio de otra barbería
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{urlBase}}/barberias/{{barberiaId}}/disponibilidad?servicioId=00000000-0000-4000-8000-000000000403&fecha={{manana}}
+  body: none
+  auth: bearer
+}
+
+params:query {
+  servicioId: 00000000-0000-4000-8000-000000000403
+  fecha: {{manana}}
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+script:pre-request {
+  // Fecha local de Guayaquil (UTC-05:00) de manana.
+  const local = (dias) => new Date(Date.now() - 5 * 3600000 + dias * 86400000).toISOString().slice(0, 10);
+  bru.setVar("manana", local(1));
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.codigo: eq NO_ENCONTRADO
+}
+
+docs {
+  SEG-02. El Corte clásico de la otra barbería consultado en Centro: NO_ENCONTRADO, nunca SERVICIO_NO_OFRECIDO. Igual con un barbero ajeno o inexistente, con un barbero de cuenta desactivada (D-33) y con una barbería inactiva o no publicada (D7, también para sus miembros).
+}

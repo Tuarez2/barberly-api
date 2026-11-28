@@ -1,0 +1,37 @@
+meta {
+  name: Horarios libres de un barbero
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{urlBase}}/barberias/{{barberiaId}}/disponibilidad?servicioId={{servicioId}}&barberoId={{barberoId}}&fecha={{manana}}
+  body: none
+  auth: bearer
+}
+
+params:query {
+  servicioId: {{servicioId}}
+  barberoId: {{barberoId}}
+  fecha: {{manana}}
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+script:pre-request {
+  // Fecha local de Guayaquil (UTC-05:00) de manana.
+  const local = (dias) => new Date(Date.now() - 5 * 3600000 + dias * 86400000).toISOString().slice(0, 10);
+  bru.setVar("manana", local(1));
+}
+
+assert {
+  res.status: eq 200
+  res.body.datos.fecha: eq {{manana}}
+  res.body.datos.horarios: isArray
+}
+
+docs {
+  RES-04, RN-04 a RN-07, RN-10, RN-26, RN-34, D-31. Ejecuta antes autenticacion/Iniciar sesión. `barberoId` es el PerfilBarbero (Carlos en las semillas). Inicios cada 15 minutos (horas de reloj locales) donde cabe el servicio completo, ascendentes en ISO UTC. Fecha pasada o fuera de `diasMaxAnticipacion`: lista vacía. Solo lee.
+}

@@ -79,7 +79,10 @@ Respuesta 200:
         "finPausa": "14:00"
       }
     ],
-    "cierres": [{ "iniciaEn": "2026-12-10T14:00:00.000Z", "terminaEn": "2026-12-10T23:00:00.000Z" }]
+    "cierres": [
+      { "iniciaEn": "2026-12-10T14:00:00.000Z", "terminaEn": "2026-12-10T23:00:00.000Z" }
+    ],
+    "zonaHoraria": "America/Guayaquil"
   }
 }
 ```
@@ -87,7 +90,8 @@ Respuesta 200:
 - `horarios`: solo el horario general (`perfilBarberoId` nulo), por `diaSemana` (0 = domingo); horas locales `HH:mm`; pausa `null` si no hay. Los días sin fila no atienden.
 - `abierta`: el mismo cálculo SQL que el listado (D-31).
 - `cierres`: Bloqueo de toda la barbería con `terminaEn` posterior a ahora (uno que termina justo ahora ya no sale) e `iniciaEn` antes del inicio del día local siguiente a hoy + `diasMaxAnticipacion` (días calendario locales de la barbería, inclusive, como reservas D5). Por `iniciaEn`; nunca `motivo`.
-- Solo los miembros ACTIVO reciben además `publicada` y `activo`, también si está publicada (la usa Gestión, pantalla 23:2147); el resto nunca. Nunca salen `archivoPortada`, `zonaHoraria` ni las reglas internas.
+- Solo los miembros ACTIVO reciben además `publicada` y `activo`, también si está publicada (la usa Gestión, pantalla 23:2147); el resto nunca. Nunca salen `archivoPortada` ni las reglas internas.
+- `zonaHoraria` (IANA, T3.2): para todos; la app muestra en ella las horas de la disponibilidad.
 - No incluye servicios ni barberos: la app los pide en sus rutas.
 
 ### GET /barberias/:id/servicios (BUS-06, HU-BUS-02, RN-21)

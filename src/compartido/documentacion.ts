@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { registrarAutenticacion } from '../modulos/autenticacion/documentacion';
 import { registrarBarberias } from '../modulos/barberias/documentacion';
+import { registrarReservas } from '../modulos/reservas/documentacion';
 
 export type RegistrarDocumentacion = (registro: OpenAPIRegistry) => void;
 
@@ -69,7 +70,11 @@ function registrarBase(registro: OpenAPIRegistry): void {
 }
 
 // Los modulos se agregan aqui a medida que existen.
-const MODULOS: RegistrarDocumentacion[] = [registrarAutenticacion, registrarBarberias];
+const MODULOS: RegistrarDocumentacion[] = [
+  registrarAutenticacion,
+  registrarBarberias,
+  registrarReservas,
+];
 
 export function generarDocumentacion() {
   const registro = new OpenAPIRegistry();

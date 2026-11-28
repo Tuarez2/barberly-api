@@ -1,0 +1,35 @@
+meta {
+  name: Horarios libres con Cualquiera disponible
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{urlBase}}/barberias/{{barberiaId}}/disponibilidad?servicioId={{servicioId}}&fecha={{manana}}
+  body: none
+  auth: bearer
+}
+
+params:query {
+  servicioId: {{servicioId}}
+  fecha: {{manana}}
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+script:pre-request {
+  // Fecha local de Guayaquil (UTC-05:00) de manana.
+  const local = (dias) => new Date(Date.now() - 5 * 3600000 + dias * 86400000).toISOString().slice(0, 10);
+  bru.setVar("manana", local(1));
+}
+
+assert {
+  res.status: eq 200
+  res.body.datos.horarios: isArray
+}
+
+docs {
+  RES-02, RN-23, D-33. Sin `barberoId`: unión sin repetir de los barberos con membresía ACTIVO, cuenta activa y el servicio asignado. No indica barbero: se asigna al reservar.
+}
