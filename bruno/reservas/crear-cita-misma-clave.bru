@@ -1,0 +1,36 @@
+meta {
+  name: Crear cita con la misma clave
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{urlBase}}/citas
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+body:json {
+  {
+    "barberiaId": "{{barberiaId}}",
+    "servicioId": "{{servicioId}}",
+    "barberoId": "{{barberoId}}",
+    "iniciaEn": "{{iniciaEn}}",
+    "notas": "Corte bajo a los lados",
+    "claveIdempotencia": "{{claveIdempotencia}}"
+  }
+}
+
+
+assert {
+  res.status: eq 200
+  res.body.datos.id: isString
+}
+
+docs {
+  D2. Reenvía la clave de la última "Crear cita": 200 con la cita ya creada, sin revalidar ni crear otra.
+}

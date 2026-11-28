@@ -1,0 +1,40 @@
+meta {
+  name: Crear cita con un servicio de otra barbería
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{urlBase}}/citas
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+body:json {
+  {
+    "barberiaId": "{{barberiaId}}",
+    "servicioId": "00000000-0000-4000-8000-000000000403",
+    "iniciaEn": "{{iniciaEn}}",
+    "claveIdempotencia": "{{claveIdempotencia}}"
+  }
+}
+
+script:pre-request {
+  // Manana a las 15:00 de Guayaquil (UTC-05:00) = 20:00 UTC, en un bloque de 15 minutos.
+  const manana = new Date(Date.now() - 5 * 3600000 + 86400000).toISOString().slice(0, 10);
+  bru.setVar("iniciaEn", `${manana}T20:00:00.000Z`);
+  bru.setVar("claveIdempotencia", require("crypto").randomUUID());
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.codigo: eq NO_ENCONTRADO
+}
+
+docs {
+  SEG-02. El servicio de otra barbería: NO_ENCONTRADO, nunca SERVICIO_NO_OFRECIDO. Igual con un barbero ajeno, inexistente o con la cuenta desactivada (D-33) y con una barbería inactiva o no publicada (D7).
+}

@@ -4,12 +4,13 @@ Disponibilidad, creación de citas, Mis citas y cancelación por el cliente (reb
 
 ## Endpoints
 
-| Método | Ruta                                      | Rol | Éxito | Errores                                                                                                                                | Tarea |
-| ------ | ----------------------------------------- | --- | ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| GET    | /api/v1/barberias/:id/disponibilidad      | Pub | 200   | NO_ENCONTRADO 404, RECURSO_INACTIVO 409, SERVICIO_NO_OFRECIDO 422, DATOS_INVALIDOS 422, AUTENTICACION_REQUERIDA 401, TOKEN_VENCIDO 401 | T3.2  |
-| GET    | /api/v1/barberias/:id/disponibilidad/dias | Pub | 200   | NO_ENCONTRADO 404, RECURSO_INACTIVO 409, SERVICIO_NO_OFRECIDO 422, DATOS_INVALIDOS 422, AUTENTICACION_REQUERIDA 401, TOKEN_VENCIDO 401 | T3.2  |
+| Método | Ruta                                      | Rol | Éxito                        | Errores                                                                                                                                                                                                                                                                                                                                 | Tarea |
+| ------ | ----------------------------------------- | --- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| GET    | /api/v1/barberias/:id/disponibilidad      | Pub | 200                          | NO_ENCONTRADO 404, RECURSO_INACTIVO 409, SERVICIO_NO_OFRECIDO 422, DATOS_INVALIDOS 422, AUTENTICACION_REQUERIDA 401, TOKEN_VENCIDO 401                                                                                                                                                                                                  | T3.2  |
+| GET    | /api/v1/barberias/:id/disponibilidad/dias | Pub | 200                          | NO_ENCONTRADO 404, RECURSO_INACTIVO 409, SERVICIO_NO_OFRECIDO 422, DATOS_INVALIDOS 422, AUTENTICACION_REQUERIDA 401, TOKEN_VENCIDO 401                                                                                                                                                                                                  | T3.2  |
+| POST   | /api/v1/citas                             | Pub | 201 (200 con clave repetida) | DATOS_INVALIDOS 422, AUTENTICACION_REQUERIDA 401, TOKEN_VENCIDO 401, NO_ENCONTRADO 404, RECURSO_INACTIVO 409, SERVICIO_NO_OFRECIDO 422, HORARIO_PASADO 422, ANTICIPACION_INSUFICIENTE 422, FECHA_DEMASIADO_LEJANA 422, FUERA_DE_HORARIO 422, BARBERO_NO_DISPONIBLE 409, HORARIO_OCUPADO 409, CRUCE_DEL_CLIENTE 409, LIMITE_DE_CITAS 409 | T3.3  |
 
-Las dos rutas viven en `rutas.ts` de este módulo y se montan en `/barberias` junto a las de `barberias` (no se pisan). Orden por solicitud: `autenticar` (401) → consulta (422) → barbería, servicio y barbero (404, 409, 422). Sin `contextoBarberia`: cualquier usuario autenticado entra, sin membresía (§2.3).
+Las dos rutas de disponibilidad viven en `rutas.ts` de este módulo y se montan en `/barberias` junto a las de `barberias` (no se pisan). Orden por solicitud: `autenticar` (401) → consulta (422) → barbería, servicio y barbero (404, 409, 422). Sin `contextoBarberia`: cualquier usuario autenticado entra, sin membresía (§2.3).
 
 ### Consulta
 
@@ -66,6 +67,44 @@ Seis consultas como máximo, sin importar días ni barberos: barbería, servicio
 - El bucle de fechas se acota también por `MAXIMO_DIAS_DISPONIBILIDAD` (31), además de la validación de la consulta.
 - Librería nueva `luxon` (con `@types/luxon`): la fijan la skill `disponibilidad-horarios` y `arquitectura-api` para horarios locales y zonas IANA.
 
+## POST /citas (T3.3, RES-06)
+
+`rutasCitas` se monta en `/citas`. Orden por solicitud: `autenticar` (401) → cuerpo (422) → servicio. Cualquier usuario autenticado reserva como cliente (D-31, N2).
+
+### Cuerpo
+
+`esquemaCrearCita` de `src/compartido/contrato.ts` (estricto: campo extra → DATOS_INVALIDOS).
+
+| Campo               | Regla                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `barberiaId`        | UUID                                                                                                                      |
+| `servicioId`        | UUID                                                                                                                      |
+| `barberoId`         | UUID del PerfilBarbero, opcional; sin él = Cualquiera disponible (CU-07 A3)                                               |
+| `iniciaEn`          | ISO 8601 con hora y zona (`Z` o cualquier desfase), en un bloque de 15 minutos sin segundos (RN-10, D6); se guarda en UTC |
+| `notas`             | Texto opcional, se recorta, máximo 200 y sin caracteres de control (RES-12); vacío = `null`                               |
+| `claveIdempotencia` | UUID; único por cliente (D2)                                                                                              |
+
+### Respuesta
+
+`{ "datos": <cita> }` con `id, estado, iniciaEn, terminaEn, duracionReserva, precioReserva ("8.00"), notas, anticipoVenceEn, barberia { id, nombre, direccion, telefono }, servicio { id, nombre }, barbero { id, nombreVisible, urlFoto }, canceladaEn, motivoCancelacion, puedeCancelar` (D4). 201 al crear; 200 si la clave ya existía.
+
+### Flujo (skill `reservas-concurrencia`, orden de §8.5)
+
+1. Idempotencia (D2): si existe una cita del cliente con esa clave, 200 con ella sin revalidar (aunque la barbería ya no esté publicada o el cuerpo difiera).
+2. Barbería, servicio y barbero con la misma validación que la disponibilidad (NO_ENCONTRADO → RECURSO_INACTIVO → SERVICIO_NO_OFRECIDO) y candidatos ordenados por id.
+3. Transacción READ COMMITTED (10 s): `FOR UPDATE` de los barberos candidatos por id ascendente → cancela sus PENDIENTE con `anticipoVenceEn` < ahora ("Anticipo vencido", `canceladaPorId` nulo, auditadas como `ANTICIPO_VENCIDO`, RN-34) → `FOR UPDATE` del cliente → vuelve a buscar la clave (dos solicitudes simultáneas con la misma clave: 201 y 200) → revalida con lecturas actuales: pasado, anticipación mínima y máxima (RN-06, RN-07, D5) → jornada, pausas, bloqueos y citas con el mismo cálculo de la disponibilidad (FUERA_DE_HORARIO, BARBERO_NO_DISPONIBLE, HORARIO_OCUPADO) → cruce y límite del cliente (RN-08, RN-09; ignoran sus PENDIENTE vencidas con otros barberos) → inserta con `terminaEn`, `precioReserva` y `duracionReserva` copiados (RN-02, RN-03) → audita `CITA_CREADA` con el cliente como actor.
+4. Estado inicial (RN-12): CONFIRMADA; con `anticipoActivo`, PENDIENTE con `anticipoVenceEn` = ahora + 15 min.
+5. Respaldo (D-19): la violación de `ex_citas_barbero_sin_cruce` → HORARIO_OCUPADO; un P2002 del único `(clienteId, claveIdempotencia)` relee la cita y responde 200. P2028, P2034 y 40P01 repiten la transacción hasta 2 veces.
+
+Cualquiera disponible: de los candidatos que pueden atender, el de menos citas activas (PENDIENTE vigente o CONFIRMADA) ese día local, empate por menor id. Si ninguno puede, el error del candidato que llegó más lejos en el orden de §8.5; sin candidatos, HORARIO_OCUPADO.
+
+### Decisiones (para el PR)
+
+- RN-09 cuenta las citas activas con `iniciaEn` ≥ ahora en esa barbería.
+- Con Cualquiera disponible y ningún barbero libre, el código es el del candidato que llegó más lejos (FUERA_DE_HORARIO < BARBERO_NO_DISPONIBLE < HORARIO_OCUPADO); sin candidatos, HORARIO_OCUPADO.
+- `claveIdempotencia` se guarda en minúsculas.
+- Las fotos de referencia de las PENDIENTE canceladas se borrarían tras el commit; AlmacenArchivos y RES-14 aún no existen, así que hoy no hay nada que borrar.
+
 ## Pruebas
 
-`disponibilidad.prueba.ts`: forma de la respuesta, casos límite de la skill (hueco exacto, cierre, anticipación mínima exacta, PENDIENTE vencida y vigente, bloqueos de barbero y de toda la barbería, cita a las 20:00 locales), RN-05 con horario propio y general, D5 (domingo, ventana por fecha local, Europe/Madrid), Cualquiera disponible, `/dias`, validación de la consulta, sesión, visibilidad (D7), aislamiento (SEG-02), D-33, solo lectura, RNF-01 (5 barberos y 1.000 citas en menos de 1 s) y documentación. Bruno: `bruno/reservas/` (el entorno `local` trae `barberiaId`, `servicioId` y `barberoId` de las semillas).
+`disponibilidad.prueba.ts`: forma de la respuesta, casos límite de la skill (hueco exacto, cierre, anticipación mínima exacta, PENDIENTE vencida y vigente, bloqueos de barbero y de toda la barbería, cita a las 20:00 locales), RN-05 con horario propio y general, D5 (domingo, ventana por fecha local, Europe/Madrid), Cualquiera disponible, `/dias`, validación de la consulta, sesión, visibilidad (D7), aislamiento (SEG-02), D-33, solo lectura, RNF-01 (5 barberos y 1.000 citas en menos de 1 s) y documentación. `crear-cita.prueba.ts`: POST /citas (PO-01 a PO-05, RN-02 a RN-12, RN-34, idempotencia D2, Cualquiera disponible, D-31, SEG-02, D7, D-33, N3, orden de §8.5, cuerpo, sesión, concurrencia real y documentación). Bruno: `bruno/reservas/` (el entorno `local` trae `barberiaId`, `servicioId` y `barberoId` de las semillas).

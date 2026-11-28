@@ -545,3 +545,86 @@ export type DiaDisponible = z.infer<typeof esquemaDiaDisponible>;
 export const esquemaRespuestaDiasDisponibles = z.object({ datos: z.array(esquemaDiaDisponible) });
 
 export type RespuestaDiasDisponibles = z.infer<typeof esquemaRespuestaDiasDisponibles>;
+
+// Crear cita, POST /citas (RES-06, RN-01, RN-10, RES-12, D2, D6). barberoId es el PerfilBarbero;
+// sin el = Cualquiera disponible (CU-07 A3). iniciaEn: ISO 8601 con Z o cualquier desfase; la API
+// lo normaliza a UTC. Debe caer en un bloque de 15 minutos exacto, sin segundos (D6): comprobarlo
+// en UTC equivale a hacerlo en la hora local porque los desfases son multiplos de 15 minutos.
+export const MINUTOS_BLOQUE_CITA = 15;
+export const MAXIMO_NOTAS_CITA = 200;
+
+function enBloqueDeCita(valor: string): boolean {
+  const instante = new Date(valor);
+  return (
+    !Number.isNaN(instante.getTime()) &&
+    instante.getUTCMinutes() % MINUTOS_BLOQUE_CITA === 0 &&
+    instante.getUTCSeconds() === 0 &&
+    instante.getUTCMilliseconds() === 0
+  );
+}
+
+export const esquemaCrearCita = z.strictObject(
+  {
+    barberiaId: z.uuid({ error: 'barberiaId debe ser un identificador válido' }),
+    servicioId: z.uuid({ error: 'servicioId debe ser un identificador válido' }),
+    barberoId: z.uuid({ error: 'barberoId debe ser un identificador válido' }).optional(),
+    iniciaEn: z.iso
+      .datetime({ offset: true, error: 'iniciaEn debe ser fecha y hora ISO 8601 con zona' })
+      .refine(enBloqueDeCita, 'iniciaEn debe caer en un bloque de 15 minutos (:00, :15, :30, :45)'),
+    // RES-12: se recorta; vacia = sin notas.
+    notas: z
+      .string({ error: 'Las notas deben ser texto' })
+      .trim()
+      .max(MAXIMO_NOTAS_CITA, `Las notas deben tener como máximo ${MAXIMO_NOTAS_CITA} caracteres`)
+      .regex(SIN_CONTROL, 'Las notas no pueden tener caracteres de control')
+      .optional(),
+    claveIdempotencia: z.uuid({ error: 'claveIdempotencia debe ser un UUID' }),
+  },
+  {
+    error: (problema) =>
+      problema.code === 'unrecognized_keys'
+        ? `Campos no permitidos: ${problema.keys.join(', ')}`
+        : 'Revisa los datos de la reserva',
+  },
+);
+
+export type EntradaCrearCita = z.infer<typeof esquemaCrearCita>;
+
+export const ESTADOS_CITA = [
+  'PENDIENTE',
+  'CONFIRMADA',
+  'COMPLETADA',
+  'CANCELADA',
+  'AUSENTE',
+] as const;
+export type EstadoCita = (typeof ESTADOS_CITA)[number];
+
+// <cita> (D4): dinero como texto con 2 decimales; instantes en ISO 8601 UTC. puedeCancelar: estado
+// PENDIENTE o CONFIRMADA y faltan al menos minutosMinCancelacion para el inicio (RN-13).
+export const esquemaCita = z.object({
+  id: z.uuid(),
+  estado: z.enum(ESTADOS_CITA),
+  iniciaEn: z.iso.datetime(),
+  terminaEn: z.iso.datetime(),
+  duracionReserva: z.number().int(),
+  precioReserva: z.string().regex(/^\d+\.\d{2}$/),
+  notas: z.string().nullable(),
+  anticipoVenceEn: z.iso.datetime().nullable(),
+  barberia: z.object({
+    id: z.uuid(),
+    nombre: z.string(),
+    direccion: z.string(),
+    telefono: z.string(),
+  }),
+  servicio: z.object({ id: z.uuid(), nombre: z.string() }),
+  barbero: z.object({ id: z.uuid(), nombreVisible: z.string(), urlFoto: z.string().nullable() }),
+  canceladaEn: z.iso.datetime().nullable(),
+  motivoCancelacion: z.string().nullable(),
+  puedeCancelar: z.boolean(),
+});
+
+export type Cita = z.infer<typeof esquemaCita>;
+
+export const esquemaRespuestaCita = z.object({ datos: esquemaCita });
+
+export type RespuestaCita = z.infer<typeof esquemaRespuestaCita>;
