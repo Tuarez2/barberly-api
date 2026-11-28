@@ -1,0 +1,39 @@
+meta {
+  name: Días con horario libre
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{urlBase}}/barberias/{{barberiaId}}/disponibilidad/dias?servicioId={{servicioId}}&barberoId={{barberoId}}&desde={{hoy}}&hasta={{enUnaSemana}}
+  body: none
+  auth: bearer
+}
+
+params:query {
+  servicioId: {{servicioId}}
+  barberoId: {{barberoId}}
+  desde: {{hoy}}
+  hasta: {{enUnaSemana}}
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+script:pre-request {
+  // Fechas locales de Guayaquil (UTC-05:00): hoy y dentro de 7 dias.
+  const local = (dias) => new Date(Date.now() - 5 * 3600000 + dias * 86400000).toISOString().slice(0, 10);
+  bru.setVar("hoy", local(0));
+  bru.setVar("enUnaSemana", local(7));
+}
+
+assert {
+  res.status: eq 200
+  res.body.datos: isArray
+  res.body.datos.length: eq 8
+}
+
+docs {
+  RES-03, CU-07. Un elemento por día de `desde` a `hasta` (inclusive, máximo 31), en orden, con `disponible` verdadero si le queda al menos un inicio. Sin `barberoId` = Cualquiera disponible.
+}

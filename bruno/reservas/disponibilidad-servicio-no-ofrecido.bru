@@ -1,0 +1,36 @@
+meta {
+  name: Horarios de un barbero que no ofrece el servicio
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{urlBase}}/barberias/{{barberiaId}}/disponibilidad?servicioId=00000000-0000-4000-8000-000000000402&barberoId=00000000-0000-4000-8000-000000000303&fecha={{manana}}
+  body: none
+  auth: bearer
+}
+
+params:query {
+  servicioId: 00000000-0000-4000-8000-000000000402
+  barberoId: 00000000-0000-4000-8000-000000000303
+  fecha: {{manana}}
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+script:pre-request {
+  // Fecha local de Guayaquil (UTC-05:00) de manana.
+  const local = (dias) => new Date(Date.now() - 5 * 3600000 + dias * 86400000).toISOString().slice(0, 10);
+  bru.setVar("manana", local(1));
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.codigo: eq SERVICIO_NO_OFRECIDO
+}
+
+docs {
+  RN-23. El Barbero dos de las semillas solo ofrece Corte clásico; con Barba responde SERVICIO_NO_OFRECIDO. Un servicio inactivo o un barbero con membresía INACTIVO responden 409 RECURSO_INACTIVO; uno INVITADO, 404 NO_ENCONTRADO.
+}

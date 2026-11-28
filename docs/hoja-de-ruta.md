@@ -68,10 +68,10 @@ Demo: un compañero reserva desde su teléfono en una barbería sembrada, sin cr
 | T2.9 | API: detalle de barbería, servicios, barberos y horario | BUS-05 a BUS-08, HU-BUS-02 | `feat/busqueda-detalle` | T2.8 | hecha |
 | T2.12 | App cliente: explorar y buscar (pantalla estrella, D-26) | BUS-01, BUS-02 | `feat/movil-explorar` | T2.8 | hecha |
 | T2.13 | App cliente: detalle de barbería con Reservar | BUS-05 a BUS-08, BUS-10 | `feat/movil-detalle-barberia` | T2.9 | hecha |
-| T3.2 | API: disponibilidad por días y por horas | RES-03, RES-04, RN-05 a RN-07, RN-10, RN-26 | `feat/reservas-disponibilidad` | T2.1 | pendiente |
-| T3.3 | API: crear cita con transacción, bloqueo y restricción sin cruces | RES-06, RN-01 a RN-12, HU-RES-01, HU-RES-04, PO-01 a PO-05, D-19 | `feat/reservas-crear` | T3.2 | pendiente |
-| T3.7 | App: reserva pasos 1 y 2 (servicio y barbero) | RES-01, RES-02 | `feat/movil-reserva-servicio-barbero` | T3.2 | pendiente |
-| T3.8 | App: fecha y hora, resumen y éxito (pantalla estrella, D-26) | RES-03 a RES-06 | `feat/movil-reserva-confirmar` | T3.3, T3.7 | pendiente |
+| T3.2 | API: disponibilidad por días y por horas | RES-03, RES-04, RN-05 a RN-07, RN-10, RN-26 | `feat/reservas-disponibilidad` | T2.1 | hecha |
+| T3.3 | API: crear cita con transacción, bloqueo y restricción sin cruces | RES-06, RN-01 a RN-12, HU-RES-01, HU-RES-04, PO-01 a PO-05, D-19 | `feat/reservas-crear` | T3.2 | hecha |
+| T3.7 | App: reserva pasos 1 y 2 (servicio y barbero) | RES-01, RES-02 | `feat/movil-reserva-servicio-barbero` | T3.2 | hecha |
+| T3.8 | App: fecha y hora, resumen y éxito (pantalla estrella, D-26) | RES-03 a RES-06 | `feat/movil-reserva-confirmar` | T3.3, T3.7 | hecha |
 | T3.4 | API: mis citas, historial y detalle | RES-07 a RES-09, SEG-05, HU-RES-03 | `feat/reservas-mis-citas` | T3.3 | pendiente |
 | T3.5 | API: cancelar cita del cliente | RES-10, RN-13, RN-15, RN-17, HU-RES-02, PO-08 | `feat/reservas-cancelar` | T3.4 | pendiente |
 | T3.9 | App: mis citas, detalle y cancelar | RES-07 a RES-10 | `feat/movil-mis-citas` | T3.5 | pendiente |

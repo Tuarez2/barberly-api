@@ -383,6 +383,8 @@ export const esquemaDetalleBarberia = z.object({
   abierta: z.boolean(),
   horarios: z.array(esquemaHorarioBarberia),
   cierres: z.array(esquemaCierreBarberia),
+  // Zona IANA de la barberia (T3.2): la app muestra en ella las horas de la disponibilidad.
+  zonaHoraria: z.string(),
   // Solo para miembros ACTIVO de la barberia (D-32); nunca para el resto.
   publicada: z.boolean().optional(),
   activo: z.boolean().optional(),
@@ -431,3 +433,198 @@ export const esquemaRespuestaBarberosBarberia = z.object({
 });
 
 export type RespuestaBarberosBarberia = z.infer<typeof esquemaRespuestaBarberosBarberia>;
+
+// Disponibilidad, GET /barberias/:id/disponibilidad y /disponibilidad/dias (RES-03, RES-04, D1, D5).
+// Fechas locales AAAA-MM-DD de la barberia (su zonaHoraria); instantes en ISO 8601 UTC.
+const FORMATO_FECHA_LOCAL = /^\d{4}-\d{2}-\d{2}$/;
+
+// Dias desde el 1970-01-01 de una fecha AAAA-MM-DD ya validada (calendario gregoriano, sin zona).
+function diasDesdeEpoca(fecha: string): number {
+  const [anio, mes, dia] = fecha.split('-').map(Number) as [number, number, number];
+  return Date.UTC(anio, mes - 1, dia) / 86_400_000;
+}
+
+// Rechaza fechas inexistentes (2026-02-30) comprobando que el dia calculado vuelve a la misma fecha.
+function esFechaExistente(fecha: string): boolean {
+  const [anio, mes, dia] = fecha.split('-').map(Number) as [number, number, number];
+  const calculada = new Date(Date.UTC(anio, mes - 1, dia));
+  return (
+    calculada.getUTCFullYear() === anio &&
+    calculada.getUTCMonth() === mes - 1 &&
+    calculada.getUTCDate() === dia
+  );
+}
+
+const esquemaFechaLocal = (campo: string) =>
+  z
+    .string({ error: `${campo} es obligatoria` })
+    .regex(FORMATO_FECHA_LOCAL, `${campo} debe tener el formato AAAA-MM-DD`)
+    .refine(esFechaExistente, `${campo} no existe en el calendario`);
+
+const esquemaIdConsulta = (campo: string) =>
+  z.uuid({ error: `${campo} debe ser un identificador válido` });
+
+// Maximo de dias (inclusive) de /disponibilidad/dias (RES-03).
+export const MAXIMO_DIAS_DISPONIBILIDAD = 31;
+
+// Sin barberoId = Cualquiera disponible (RES-02). barberoId es el id del PerfilBarbero.
+export const esquemaConsultaDisponibilidad = z.strictObject(
+  {
+    servicioId: esquemaIdConsulta('servicioId'),
+    barberoId: esquemaIdConsulta('barberoId').optional(),
+    fecha: esquemaFechaLocal('La fecha'),
+  },
+  {
+    error: (problema) =>
+      problema.code === 'unrecognized_keys'
+        ? `Parámetros no permitidos: ${problema.keys.join(', ')}`
+        : 'Revisa la consulta de disponibilidad',
+  },
+);
+
+export type ConsultaDisponibilidad = z.infer<typeof esquemaConsultaDisponibilidad>;
+
+export const esquemaConsultaDiasDisponibles = z
+  .strictObject(
+    {
+      servicioId: esquemaIdConsulta('servicioId'),
+      barberoId: esquemaIdConsulta('barberoId').optional(),
+      desde: esquemaFechaLocal('La fecha desde'),
+      hasta: esquemaFechaLocal('La fecha hasta'),
+    },
+    {
+      error: (problema) =>
+        problema.code === 'unrecognized_keys'
+          ? `Parámetros no permitidos: ${problema.keys.join(', ')}`
+          : 'Revisa la consulta de disponibilidad',
+    },
+  )
+  .superRefine((consulta, contexto) => {
+    const dias = diasDesdeEpoca(consulta.hasta) - diasDesdeEpoca(consulta.desde) + 1;
+    if (dias < 1) {
+      contexto.addIssue({
+        code: 'custom',
+        path: ['hasta'],
+        message: 'hasta no puede ser anterior a desde',
+      });
+    } else if (dias > MAXIMO_DIAS_DISPONIBILIDAD) {
+      contexto.addIssue({
+        code: 'custom',
+        path: ['hasta'],
+        message: `El rango es de máximo ${MAXIMO_DIAS_DISPONIBILIDAD} días`,
+      });
+    }
+  });
+
+export type ConsultaDiasDisponibles = z.infer<typeof esquemaConsultaDiasDisponibles>;
+
+// Inicios libres de una fecha, ascendentes y sin repetir; nunca indica barbero (D1).
+export const esquemaHorarioDisponible = z.object({ iniciaEn: z.iso.datetime() });
+
+export type HorarioDisponible = z.infer<typeof esquemaHorarioDisponible>;
+
+export const esquemaDisponibilidad = z.object({
+  fecha: z.string().regex(FORMATO_FECHA_LOCAL),
+  horarios: z.array(esquemaHorarioDisponible),
+});
+
+export type Disponibilidad = z.infer<typeof esquemaDisponibilidad>;
+
+export const esquemaRespuestaDisponibilidad = z.object({ datos: esquemaDisponibilidad });
+
+export type RespuestaDisponibilidad = z.infer<typeof esquemaRespuestaDisponibilidad>;
+
+// Un elemento por dia del rango pedido, en orden; disponible si conserva al menos un inicio (CU-07).
+export const esquemaDiaDisponible = z.object({
+  fecha: z.string().regex(FORMATO_FECHA_LOCAL),
+  disponible: z.boolean(),
+});
+
+export type DiaDisponible = z.infer<typeof esquemaDiaDisponible>;
+
+export const esquemaRespuestaDiasDisponibles = z.object({ datos: z.array(esquemaDiaDisponible) });
+
+export type RespuestaDiasDisponibles = z.infer<typeof esquemaRespuestaDiasDisponibles>;
+
+// Crear cita, POST /citas (RES-06, RN-01, RN-10, RES-12, D2, D6). barberoId es el PerfilBarbero;
+// sin el = Cualquiera disponible (CU-07 A3). iniciaEn: ISO 8601 con Z o cualquier desfase; la API
+// lo normaliza a UTC. Debe caer en un bloque de 15 minutos exacto, sin segundos (D6): comprobarlo
+// en UTC equivale a hacerlo en la hora local porque los desfases son multiplos de 15 minutos.
+export const MINUTOS_BLOQUE_CITA = 15;
+export const MAXIMO_NOTAS_CITA = 200;
+
+function enBloqueDeCita(valor: string): boolean {
+  const instante = new Date(valor);
+  return (
+    !Number.isNaN(instante.getTime()) &&
+    instante.getUTCMinutes() % MINUTOS_BLOQUE_CITA === 0 &&
+    instante.getUTCSeconds() === 0 &&
+    instante.getUTCMilliseconds() === 0
+  );
+}
+
+export const esquemaCrearCita = z.strictObject(
+  {
+    barberiaId: z.uuid({ error: 'barberiaId debe ser un identificador válido' }),
+    servicioId: z.uuid({ error: 'servicioId debe ser un identificador válido' }),
+    barberoId: z.uuid({ error: 'barberoId debe ser un identificador válido' }).optional(),
+    iniciaEn: z.iso
+      .datetime({ offset: true, error: 'iniciaEn debe ser fecha y hora ISO 8601 con zona' })
+      .refine(enBloqueDeCita, 'iniciaEn debe caer en un bloque de 15 minutos (:00, :15, :30, :45)'),
+    // RES-12: se recorta; vacia = sin notas.
+    notas: z
+      .string({ error: 'Las notas deben ser texto' })
+      .trim()
+      .max(MAXIMO_NOTAS_CITA, `Las notas deben tener como máximo ${MAXIMO_NOTAS_CITA} caracteres`)
+      .regex(SIN_CONTROL, 'Las notas no pueden tener caracteres de control')
+      .optional(),
+    claveIdempotencia: z.uuid({ error: 'claveIdempotencia debe ser un UUID' }),
+  },
+  {
+    error: (problema) =>
+      problema.code === 'unrecognized_keys'
+        ? `Campos no permitidos: ${problema.keys.join(', ')}`
+        : 'Revisa los datos de la reserva',
+  },
+);
+
+export type EntradaCrearCita = z.infer<typeof esquemaCrearCita>;
+
+export const ESTADOS_CITA = [
+  'PENDIENTE',
+  'CONFIRMADA',
+  'COMPLETADA',
+  'CANCELADA',
+  'AUSENTE',
+] as const;
+export type EstadoCita = (typeof ESTADOS_CITA)[number];
+
+// <cita> (D4): dinero como texto con 2 decimales; instantes en ISO 8601 UTC. puedeCancelar: estado
+// PENDIENTE o CONFIRMADA y faltan al menos minutosMinCancelacion para el inicio (RN-13).
+export const esquemaCita = z.object({
+  id: z.uuid(),
+  estado: z.enum(ESTADOS_CITA),
+  iniciaEn: z.iso.datetime(),
+  terminaEn: z.iso.datetime(),
+  duracionReserva: z.number().int(),
+  precioReserva: z.string().regex(/^\d+\.\d{2}$/),
+  notas: z.string().nullable(),
+  anticipoVenceEn: z.iso.datetime().nullable(),
+  barberia: z.object({
+    id: z.uuid(),
+    nombre: z.string(),
+    direccion: z.string(),
+    telefono: z.string(),
+  }),
+  servicio: z.object({ id: z.uuid(), nombre: z.string() }),
+  barbero: z.object({ id: z.uuid(), nombreVisible: z.string(), urlFoto: z.string().nullable() }),
+  canceladaEn: z.iso.datetime().nullable(),
+  motivoCancelacion: z.string().nullable(),
+  puedeCancelar: z.boolean(),
+});
+
+export type Cita = z.infer<typeof esquemaCita>;
+
+export const esquemaRespuestaCita = z.object({ datos: esquemaCita });
+
+export type RespuestaCita = z.infer<typeof esquemaRespuestaCita>;

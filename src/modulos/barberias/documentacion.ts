@@ -90,7 +90,7 @@ export const registrarBarberias: RegistrarDocumentacion = (registro) => {
     path: '/barberias/{id}',
     tags: ['barberias'],
     summary: 'Detalle de una barbería con horario y cierres (BUS-05, BUS-08)',
-    description: `${VISIBILIDAD} \`horarios\`: horario general por día (0 = domingo), horas locales HH:mm; los días sin fila no atienden. \`cierres\`: bloqueos de toda la barbería que no terminaron y empiezan dentro de \`diasMaxAnticipacion\` (días locales, inclusive), por \`iniciaEn\`, sin motivo. \`abierta\` como en el listado (D-31). Solo los miembros ACTIVO reciben además \`publicada\` y \`activo\`. No incluye servicios ni barberos.`,
+    description: `${VISIBILIDAD} \`horarios\`: horario general por día (0 = domingo), horas locales HH:mm; los días sin fila no atienden. \`cierres\`: bloqueos de toda la barbería que no terminaron y empiezan dentro de \`diasMaxAnticipacion\` (días locales, inclusive), por \`iniciaEn\`, sin motivo. \`abierta\` como en el listado (D-31). \`zonaHoraria\` (IANA) es la zona de la barbería, en la que la app muestra las horas de la disponibilidad (T3.2). Solo los miembros ACTIVO reciben además \`publicada\` y \`activo\`. No incluye servicios ni barberos.`,
     security: SEGURIDAD_BEARER,
     request: { params: parametrosBarberia },
     responses: {

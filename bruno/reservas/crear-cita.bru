@@ -1,0 +1,43 @@
+meta {
+  name: Crear cita
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{urlBase}}/citas
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+body:json {
+  {
+    "barberiaId": "{{barberiaId}}",
+    "servicioId": "{{servicioId}}",
+    "barberoId": "{{barberoId}}",
+    "iniciaEn": "{{iniciaEn}}",
+    "notas": "Corte bajo a los lados",
+    "claveIdempotencia": "{{claveIdempotencia}}"
+  }
+}
+
+script:pre-request {
+  // Manana a las 15:00 de Guayaquil (UTC-05:00) = 20:00 UTC, en un bloque de 15 minutos.
+  const manana = new Date(Date.now() - 5 * 3600000 + 86400000).toISOString().slice(0, 10);
+  bru.setVar("iniciaEn", `${manana}T20:00:00.000Z`);
+  bru.setVar("claveIdempotencia", require("crypto").randomUUID());
+}
+
+assert {
+  res.status: eq 201
+  res.body.datos.estado: eq CONFIRMADA
+  res.body.datos.precioReserva: isString
+}
+
+docs {
+  RES-06, RN-01 a RN-12, PO-01. Ejecuta antes autenticacion/Iniciar sesión. Bloqueo FOR UPDATE del barbero y del cliente, revalidación en el orden de §8.5 y precio y duración copiados. Repetir con la misma `claveIdempotencia` (ejecuta "Crear cita con la misma clave") responde 200 con la misma cita (D2).
+}

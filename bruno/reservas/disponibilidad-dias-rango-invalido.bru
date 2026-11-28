@@ -1,0 +1,30 @@
+meta {
+  name: Días con un rango de más de 31 días
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{urlBase}}/barberias/{{barberiaId}}/disponibilidad/dias?servicioId={{servicioId}}&desde=2027-01-01&hasta=2027-02-01
+  body: none
+  auth: bearer
+}
+
+params:query {
+  servicioId: {{servicioId}}
+  desde: 2027-01-01
+  hasta: 2027-02-01
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.codigo: eq DATOS_INVALIDOS
+}
+
+docs {
+  RES-03. 32 días: DATOS_INVALIDOS con `hasta` en `detalles`. También `desde` posterior a `hasta`, fechas que no son AAAA-MM-DD o no existen (2026-02-30) y parámetros desconocidos.
+}

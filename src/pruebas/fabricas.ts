@@ -207,6 +207,7 @@ interface DatosCita {
   nombreCliente?: string;
   telefonoCliente?: string;
   estado?: EstadoCita;
+  anticipoVenceEn?: Date | null;
 }
 
 // Congela precio y duracion del servicio (RN-02, RN-03); terminaEn = iniciaEn + duracion.
@@ -226,6 +227,56 @@ export async function crearCitaDePrueba(datos: DatosCita) {
       precioReserva: servicio.precio,
       duracionReserva: servicio.duracionMinutos,
       estado: datos.estado ?? 'CONFIRMADA',
+      anticipoVenceEn: datos.anticipoVenceEn ?? null,
+    },
+  });
+}
+
+interface DatosHorario {
+  barberiaId: string;
+  // Vacio = horario general de la barberia; con valor = horario propio del barbero (D-31).
+  perfilBarberoId?: string | null;
+  dias?: number[];
+  horaApertura?: string;
+  horaCierre?: string;
+  inicioPausa?: string | null;
+  finPausa?: string | null;
+}
+
+// Una fila de HorarioAtencion por dia (diaSemana 0 = domingo). Por defecto los 7 dias 09:00-19:00 sin pausa.
+export async function crearHorarioDePrueba(datos: DatosHorario) {
+  await baseDatos.horarioAtencion.createMany({
+    data: (datos.dias ?? [0, 1, 2, 3, 4, 5, 6]).map((diaSemana) => ({
+      id: siguienteId(),
+      barberiaId: datos.barberiaId,
+      perfilBarberoId: datos.perfilBarberoId ?? null,
+      diaSemana,
+      horaApertura: datos.horaApertura ?? '09:00',
+      horaCierre: datos.horaCierre ?? '19:00',
+      inicioPausa: datos.inicioPausa ?? null,
+      finPausa: datos.finPausa ?? null,
+    })),
+  });
+}
+
+interface DatosBloqueo {
+  barberiaId: string;
+  // Vacio = cierre de toda la barberia (RN-26).
+  perfilBarberoId?: string | null;
+  iniciaEn: Date;
+  terminaEn: Date;
+  motivo?: string;
+}
+
+export async function crearBloqueoDePrueba(datos: DatosBloqueo) {
+  return baseDatos.bloqueo.create({
+    data: {
+      id: siguienteId(),
+      barberiaId: datos.barberiaId,
+      perfilBarberoId: datos.perfilBarberoId ?? null,
+      iniciaEn: datos.iniciaEn,
+      terminaEn: datos.terminaEn,
+      motivo: datos.motivo,
     },
   });
 }

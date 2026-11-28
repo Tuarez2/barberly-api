@@ -4,6 +4,7 @@ import { configuracion } from './compartido/configuracion';
 import { generarDocumentacion } from './compartido/documentacion';
 import { rutasAutenticacion, rutasUsuarios } from './modulos/autenticacion/rutas';
 import { rutasBarberias } from './modulos/barberias/rutas';
+import { rutasCitas, rutasDisponibilidad } from './modulos/reservas/rutas';
 
 export const rutas = Router();
 
@@ -26,3 +27,5 @@ rutas.get('/documentacion', (_req, res, next) => {
 rutas.use('/autenticacion', rutasAutenticacion);
 rutas.use('/usuarios', rutasUsuarios);
 rutas.use('/barberias', rutasBarberias);
+rutas.use('/barberias', rutasDisponibilidad);
+rutas.use('/citas', rutasCitas);

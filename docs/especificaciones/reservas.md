@@ -75,7 +75,7 @@ Cada criterio debe poder escribirse como una prueba, con valores concretos.
 - SEG-02: Dado un `servicioId` o `barberoId` de otra barbería o inexistente, cuando GET /disponibilidad o POST /citas, entonces NO_ENCONTRADO 404 (no SERVICIO_NO_OFRECIDO); una barbería inactiva o no publicada también da NO_ENCONTRADO, incluso a sus miembros.
 - RES-02, RES-06 (D-33): Dado un barbero con membresía ACTIVO y Usuario inactivo, cuando GET /disponibilidad o POST /citas con su `barberoId`, entonces NO_ENCONTRADO 404; sin `barberoId` (Cualquiera disponible) sus horarios no cuentan ni se le asigna; sus citas existentes siguen igual.
 - RN-23, RN-26: Dado un barbero de la barbería sin ese servicio, entonces SERVICIO_NO_OFRECIDO; con un Bloqueo de toda la barbería, no hay horarios y `dias` marca `disponible` falso.
-- RN-34: Dada una PENDIENTE con `anticipoVenceEn` pasado, cuando se consulta la disponibilidad o se reserva ese horario, entonces está libre y la PENDIENTE queda CANCELADA ("Anticipo vencido", canceladaPorId nulo).
+- RN-34: Dada una PENDIENTE con `anticipoVenceEn` pasado, cuando se consulta la disponibilidad o se reserva ese horario, entonces está libre. La disponibilidad solo lee y la muestra libre, sin cancelar nada; la PENDIENTE vencida pasa a CANCELADA ("Anticipo vencido", canceladaPorId nulo) en POST /citas (dentro de la transacción, skill `reservas-concurrencia`) y en el proceso programado.
 - RES-07, RES-08: Dado un cliente con citas CONFIRMADA, CANCELADA y COMPLETADA, cuando pide `estado=PENDIENTE,CONFIRMADA`, entonces solo ve las activas por fecha ascendente; nunca citas ajenas.
 - PO-08, RN-13: Dado `minutosMinCancelacion` 120, cuando cancela con inicio en 2 h exactas, entonces 200 CANCELADA con motivo, quién y cuándo, y el horario se puede reservar; con 119 min, CANCELACION_TARDIA y sigue CONFIRMADA.
 - PO-09, RN-16: Dada una cita CANCELADA, cuando se cancela de nuevo, entonces TRANSICION_INVALIDA.
@@ -101,6 +101,8 @@ Menores (Decidido, se anota en el PR):
 Ninguna abierta. Decidido (para el PR):
 - N1 (D-31): un barbero sin HorarioAtencion propio ese día no trabaja ese día (RN-05); no hereda el horario general.
 - N2 (D-31): un barbero o propietario puede reservar como cliente en su misma barbería, sin restricción adicional.
+- N3 (menor): con `barberoId` explícito: membresía INVITADO de la misma barbería, Usuario inactivo (D-33) o barbero ajeno: NO_ENCONTRADO (el INVITADO no es público); membresía INACTIVO: RECURSO_INACTIVO. Orden: NO_ENCONTRADO, RECURSO_INACTIVO, SERVICIO_NO_OFRECIDO.
+- N4 (menor): una PENDIENTE ocupa el horario hasta su `anticipoVenceEn` inclusive; POST /citas usa el mismo límite que la disponibilidad.
 
 ## Referencias
 DERCAS §3.3, §4.1, §4.2, §4.7, §4.8, §8.5, §8.6, §9.2, §10.1, §10.2, §12.2, CU-07, CU-09; decisiones D-09, D-19, D-31, D-33.
