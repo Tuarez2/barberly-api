@@ -4,6 +4,8 @@ import { ErrorNegocio } from '../../compartido/errores';
 import type {
   ConsultaDiasDisponibles,
   ConsultaDisponibilidad,
+  EntradaCrearCita,
+  RespuestaCita,
   RespuestaDiasDisponibles,
   RespuestaDisponibilidad,
 } from './esquemas';
@@ -34,4 +36,14 @@ export async function diasDisponibles(
     req.validado as ConsultaDiasDisponibles,
   );
   res.status(200).json({ datos });
+}
+
+// RES-06: 201 si se creo; 200 si la claveIdempotencia ya existia para este cliente (D2).
+export async function crearCita(req: Request, res: Response<RespuestaCita>): Promise<void> {
+  if (!req.usuario) throw new ErrorNegocio('AUTENTICACION_REQUERIDA', 401, 'Debes iniciar sesión');
+  const { cita, creada } = await servicio.crearCita(
+    req.usuario.id,
+    req.validado as EntradaCrearCita,
+  );
+  res.status(creada ? 201 : 200).json({ datos: cita });
 }

@@ -2,7 +2,11 @@ import { Router } from 'express';
 
 import { autenticar, validar } from '../../compartido/middleware';
 import * as controlador from './controlador';
-import { esquemaConsultaDiasDisponibles, esquemaConsultaDisponibilidad } from './esquemas';
+import {
+  esquemaConsultaDiasDisponibles,
+  esquemaConsultaDisponibilidad,
+  esquemaCrearCita,
+} from './esquemas';
 
 // Se monta en /barberias junto a rutasBarberias: sus rutas (/:id, /:id/servicios, /:id/barberos)
 // no coinciden con estas.
@@ -23,3 +27,11 @@ rutasDisponibilidad.get(
   validar(esquemaConsultaDiasDisponibles, 'query'),
   controlador.diasDisponibles,
 );
+
+// Se monta en /citas.
+export const rutasCitas = Router();
+
+// RES-06 (Pub, D-31): cualquier usuario autenticado reserva como cliente, sin membresia.
+// autenticar (401) → validar el cuerpo (422) → servicio: idempotencia (200), barberia, servicio y
+// barbero (404, 409, 422) y la transaccion con bloqueo (§8.5, skill reservas-concurrencia).
+rutasCitas.post('/', autenticar, validar(esquemaCrearCita), controlador.crearCita);

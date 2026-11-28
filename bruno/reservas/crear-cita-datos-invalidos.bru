@@ -1,0 +1,41 @@
+meta {
+  name: Crear cita fuera del bloque de 15 minutos
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{urlBase}}/citas
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+body:json {
+  {
+    "barberiaId": "{{barberiaId}}",
+    "servicioId": "{{servicioId}}",
+    "barberoId": "{{barberoId}}",
+    "iniciaEn": "2030-01-02T15:05:00.000Z",
+    "claveIdempotencia": "{{claveIdempotencia}}"
+  }
+}
+
+script:pre-request {
+  // Manana a las 15:00 de Guayaquil (UTC-05:00) = 20:00 UTC, en un bloque de 15 minutos.
+  const manana = new Date(Date.now() - 5 * 3600000 + 86400000).toISOString().slice(0, 10);
+  bru.setVar("iniciaEn", `${manana}T20:00:00.000Z`);
+  bru.setVar("claveIdempotencia", require("crypto").randomUUID());
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.codigo: eq DATOS_INVALIDOS
+}
+
+docs {
+  RN-10, D6. Un inicio que no cae en :00, :15, :30 o :45 (o con segundos), un campo extra o una clave que no es UUID: DATOS_INVALIDOS con `detalles` por campo.
+}

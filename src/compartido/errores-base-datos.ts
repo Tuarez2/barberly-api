@@ -17,6 +17,13 @@ export function esCruceDeCitas(error: unknown): boolean {
   return codigoPostgres(error) === EXCLUSION_VIOLADA;
 }
 
+// Transaccion que conviene repetir completa (skill reservas-concurrencia): tiempo agotado (P2028),
+// conflicto de escritura o interbloqueo (P2034) e interbloqueo de PostgreSQL (40P01).
+export function esReintentable(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  return error.code === 'P2028' || error.code === 'P2034' || codigoPostgres(error) === '40P01';
+}
+
 // Indice unico violado (correo repetido, clave de idempotencia...).
 export function esDuplicado(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';

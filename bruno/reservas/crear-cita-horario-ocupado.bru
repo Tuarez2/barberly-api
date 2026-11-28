@@ -1,0 +1,41 @@
+meta {
+  name: Crear cita en un horario ocupado
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{urlBase}}/citas
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAcceso}}
+}
+
+body:json {
+  {
+    "barberiaId": "{{barberiaId}}",
+    "servicioId": "{{servicioId}}",
+    "barberoId": "{{barberoId}}",
+    "iniciaEn": "{{iniciaEn}}",
+    "claveIdempotencia": "{{claveIdempotencia}}"
+  }
+}
+
+script:pre-request {
+  // Manana a las 15:00 de Guayaquil (UTC-05:00) = 20:00 UTC, en un bloque de 15 minutos.
+  const manana = new Date(Date.now() - 5 * 3600000 + 86400000).toISOString().slice(0, 10);
+  bru.setVar("iniciaEn", `${manana}T20:00:00.000Z`);
+  bru.setVar("claveIdempotencia", require("crypto").randomUUID());
+}
+
+assert {
+  res.status: eq 409
+  res.body.error.codigo: eq HORARIO_OCUPADO
+}
+
+docs {
+  RN-04, RN-11, PO-02. Ejecuta antes "Crear cita" con otra cuenta (u otra clave tras cancelar el cruce del cliente): el mismo barbero y hora con otra clave responde HORARIO_OCUPADO. Con la misma cuenta el orden de §8.5 da antes HORARIO_OCUPADO que CRUCE_DEL_CLIENTE.
+}
