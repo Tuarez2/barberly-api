@@ -74,6 +74,8 @@ const CENTRO_PUBLICA = {
   abierta: true,
   horarios: HORARIOS_BASE,
   cierres: [],
+  // T3.2: la app muestra las horas de la disponibilidad en la zona de la barberia.
+  zonaHoraria: 'America/Guayaquil',
 };
 
 const CLAVES_DETALLE = [
@@ -86,6 +88,7 @@ const CLAVES_DETALLE = [
   'nombre',
   'telefono',
   'urlPortada',
+  'zonaHoraria',
 ];
 
 async function actualizarBarberia(id: string, data: { publicada?: boolean; activo?: boolean }) {
@@ -167,7 +170,6 @@ describe('BUS-05: GET /api/v1/barberias/:id', () => {
     expect(barberia.urlPortada).toEqual(expect.any(String));
     for (const interno of [
       'archivoPortada',
-      'zonaHoraria',
       'minutosMinCancelacion',
       'minutosMinAnticipacion',
       'diasMaxAnticipacion',
@@ -217,6 +219,21 @@ describe('BUS-05: GET /api/v1/barberias/:id', () => {
       terminaEn: fechaLocal('2026-12-01', '11:00'),
     });
     expect(datos(await detalle(CENTRO)).abierta).toBe(false);
+  });
+});
+
+describe('T3.2: zonaHoraria en el detalle', () => {
+  it('T3.2: GET /barberias/:id incluye zonaHoraria (IANA) de cada barberia', async () => {
+    await baseDatos.barberia.update({
+      where: { id: NORTE },
+      data: { zonaHoraria: 'Europe/Madrid' },
+    });
+
+    const centro = datos(await detalle(CENTRO));
+    const norte = datos(await detalle(NORTE));
+
+    expect(centro.zonaHoraria).toBe('America/Guayaquil');
+    expect(norte.zonaHoraria).toBe('Europe/Madrid');
   });
 });
 

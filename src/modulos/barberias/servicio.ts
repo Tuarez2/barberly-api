@@ -147,6 +147,7 @@ interface FilaDetalle {
   direccion: string;
   telefono: string;
   archivoPortada: string | null;
+  zonaHoraria: string;
   publicada: boolean;
   activo: boolean;
   abierta: boolean;
@@ -163,7 +164,7 @@ export async function detalle(id: string, usuarioId: string): Promise<DetalleBar
   const instanteIso = instante.toISOString();
   const [fila] = await baseDatos.$queryRaw<FilaDetalle[]>`
     SELECT b."id", b."nombre", b."descripcion", b."direccion", b."telefono", b."archivoPortada",
-      b."publicada", b."activo", ${sqlAbierta(instanteIso)} AS "abierta",
+      b."zonaHoraria", b."publicada", b."activo", ${sqlAbierta(instanteIso)} AS "abierta",
       EXISTS (
         SELECT 1 FROM "membresias" m
         WHERE m."barberiaId" = b."id" AND m."usuarioId" = ${usuarioId}::uuid AND m."estado" = 'ACTIVO'
@@ -215,6 +216,8 @@ export async function detalle(id: string, usuarioId: string): Promise<DetalleBar
       iniciaEn: bloqueo.iniciaEn.toISOString(),
       terminaEn: bloqueo.terminaEn.toISOString(),
     })),
+    // T3.2: la app muestra las horas de la disponibilidad en la zona de la barberia.
+    zonaHoraria: fila.zonaHoraria,
   };
   // D-32: los miembros ACTIVO siempre reciben publicada y activo (la usa Gestion); el resto nunca.
   return fila.miembro ? { ...datos, publicada: fila.publicada, activo: fila.activo } : datos;
